@@ -47,7 +47,9 @@
 "..\obj\mpu6050.o"
 "..\obj\myiic.o"
 "..\obj\chassis_motor.o"
---strict --scatter "..\OBJ\Template.sct"
+"..\obj\inv_mpu.o"
+"..\obj\inv_mpu_dmp_motion_driver.o"
+--library_type=microlib --strict --scatter "..\OBJ\Template.sct"
 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers
 --list "..\OBJ\Template.map" -o ..\OBJ\Template.axf

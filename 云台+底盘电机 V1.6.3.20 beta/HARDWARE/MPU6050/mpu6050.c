@@ -2,18 +2,20 @@
 #include "sys.h"
 #include "delay.h"
 #include "usart.h"   
-//////////////////////////////////////////////////
-//RM2018 ÔÆÌ¨ÊµÑé³ÌÐò
-//°æ±¾ 1.2.1.5
-//³õ²½ÊµÑé
-//×÷Õß£ºÉòÀíµçÐ­Ambition Wx
-//³ÌÐò£ºmpu6050
-//////////////////////////////////////////////////
-
-//»¬¶¯ÂË²¨
-//FIFO_manyÎª¿Éµ÷Á¿
+//////////////////////////////////////////////////////////////////////////////////	 
+//±¾³ÌÐòÖ»¹©Ñ§Ï°Ê¹ÓÃ£¬Î´¾­×÷ÕßÐí¿É£¬²»µÃÓÃÓÚÆäËüÈÎºÎÓÃÍ¾
+//ALIENTEK STM32F407¿ª·¢°å
+//MPU6050 Çý¶¯´úÂë	   
+//ÕýµãÔ­×Ó@ALIENTEK
+//¼¼ÊõÂÛÌ³:www.openedv.com
+//´´½¨ÈÕÆÚ:2014/5/9
+//°æ±¾£ºV1.0
+//°æÈ¨ËùÓÐ£¬µÁ°æ±Ø¾¿¡£
+//Copyright(C) ¹ãÖÝÊÐÐÇÒíµç×Ó¿Æ¼¼ÓÐÏÞ¹«Ë¾ 2014-2024
+//All rights reserved									  
+////////////////////////////////////////////////////////////////////////////////// 	
 #define many_wx 40
-
+float Gyro_z,Gyro_y;
 int zy[2][many_wx + 1];
 short y_compensate,z_compensate;
 float Gyro_z,Gyro_y;
@@ -22,7 +24,7 @@ void read_Gyrodate()
     u8 i;
     int sum_y = 0, sum_z = 0;
 	short y,z;
-	MPU_Get_Gyroscope(&y,&z);
+	MPU_Get_Gyroscope_(&y,&z);
 	zy[0][many_wx] = y - y_compensate;
 	zy[1][many_wx] = z - z_compensate;
     for(i = 0; i < many_wx; i++) 
@@ -37,27 +39,17 @@ void read_Gyrodate()
 	Gyro_z = (float)(z - z_compensate)/130.0f;
 	Gyro_y = (float)(y - y_compensate)/320.0f;
 }
-
-
 //³õÊ¼»¯MPU6050
 //·µ»ØÖµ:0,³É¹¦
 //    ÆäËû,´íÎó´úÂë
-
-
 u8 MPU_Init(void)
 { 
-	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure;
-	NVIC_InitTypeDef NVIC_InitStructure;
 	u8 res;
-	u8 i;
-	short sum_y,sum_z;
-
 	IIC_Init();//³õÊ¼»¯IIC×ÜÏß
-	delay_ms(500);
 	MPU_Write_Byte(MPU_PWR_MGMT1_REG,0X80);	//¸´Î»MPU6050
-    delay_ms(200);
+    delay_ms(100);
 	MPU_Write_Byte(MPU_PWR_MGMT1_REG,0X00);	//»½ÐÑMPU6050 
-	MPU_Set_Gyro_Fsr(0);					//ÍÓÂÝÒÇ´«¸ÐÆ÷,¡À250dps
+	MPU_Set_Gyro_Fsr(0);					//ÍÓÂÝÒÇ´«¸ÐÆ÷,¡À2000dps
 	MPU_Set_Accel_Fsr(0);					//¼ÓËÙ¶È´«¸ÐÆ÷,¡À2g
 	MPU_Set_Rate(1000);						//ÉèÖÃ²ÉÑùÂÊ50Hz
 	MPU_Write_Byte(MPU_INT_EN_REG,0X00);	//¹Ø±ÕËùÓÐÖÐ¶Ï
@@ -71,36 +63,19 @@ u8 MPU_Init(void)
 		MPU_Write_Byte(MPU_PWR_MGMT2_REG,0X00);	//¼ÓËÙ¶ÈÓëÍÓÂÝÒÇ¶¼¹¤×÷
 		MPU_Set_Rate(1000);						//ÉèÖÃ²ÉÑùÂÊÎª50Hz
  	}else return 1;
-	for(i=0;i<5;i++)
-	{
-		MPU_Get_Gyroscope(&sum_y,&sum_z);
-		sum_y += sum_y;
-		sum_z += sum_z;
-		delay_ms(10);
-	}
-	y_compensate = sum_y/5 - 19;
-	z_compensate = sum_z/5 - 19;
-//	//<---------------¶¨Ê±Æ÷14 PID¼ÆËã Êý¾Ý²ÉÑù --------------------->
-//	
-// 	
-//	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM12,ENABLE);  ///Ê¹ÄÜTIM14Ê±ÖÓ
-//	
-//    TIM_TimeBaseInitStructure.TIM_Period = 100-1; 	//×Ô¶¯ÖØ×°ÔØÖµ
-//	TIM_TimeBaseInitStructure.TIM_Prescaler = 840-1;  //¶¨Ê±Æ÷·ÖÆµ
-//	TIM_TimeBaseInitStructure.TIM_CounterMode=TIM_CounterMode_Up; //ÏòÉÏ¼ÆÊýÄ£Ê½
-//	TIM_TimeBaseInitStructure.TIM_ClockDivision=TIM_CKD_DIV1; 
-//	
-//	TIM_TimeBaseInit(TIM12,&TIM_TimeBaseInitStructure);//³õÊ¼»¯TIM14
-//	
-//	TIM_ITConfig(TIM12,TIM_IT_Update,ENABLE); //ÔÊÐí¶¨Ê±Æ÷14¸üÐÂÖÐ¶Ï
-//	TIM_Cmd(TIM12,ENABLE); //Ê¹ÄÜ¶¨Ê±Æ1÷
-//	
-//	NVIC_InitStructure.NVIC_IRQChannel=TIM8_BRK_TIM12_IRQn; //¶¨Ê±Æ÷14ÖÐ¶Ï
-//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=0x01; //ÇÀÕ¼ÓÅÏÈ¼¶1
-//	NVIC_InitStructure.NVIC_IRQChannelSubPriority=0x00; //×ÓÓÅÏÈ¼¶1
-//	NVIC_InitStructure.NVIC_IRQChannelCmd=ENABLE;
-//	NVIC_Init(&NVIC_InitStructure);
-//	return 0;
+	return 0;
+}
+u8 MPU_Get_Gyroscope_(short *gy,short *gz)
+{
+	u8 buf[6],res; 
+	res=MPU_Read_Len(MPU_ADDR,MPU_GYRO_XOUTH_REG,6,buf);
+	if(res==0)
+	{ 
+		*gy=((u16)buf[0]<<8)|buf[1];  
+		*gz=((u16)buf[4]<<8)|buf[5];
+
+	} 
+    return res;;
 }
 //ÉèÖÃMPU6050ÍÓÂÝÒÇ´«¸ÐÆ÷ÂúÁ¿³Ì·¶Î§
 //fsr:0,¡À250dps;1,¡À500dps;2,¡À1000dps;3,¡À2000dps
@@ -163,19 +138,18 @@ short MPU_Get_Temperature(void)
 //gx,gy,gz:ÍÓÂÝÒÇx,y,zÖáµÄÔ­Ê¼¶ÁÊý(´ø·ûºÅ)
 //·µ»ØÖµ:0,³É¹¦
 //    ÆäËû,´íÎó´úÂë
-u8 MPU_Get_Gyroscope(short *gy,short *gz)
+u8 MPU_Get_Gyroscope(short *gx,short *gy,short *gz)
 {
-	u8 buf[6],res; 
+    u8 buf[6],res;  
 	res=MPU_Read_Len(MPU_ADDR,MPU_GYRO_XOUTH_REG,6,buf);
 	if(res==0)
-	{ 
-		*gy=((u16)buf[0]<<8)|buf[1];  
+	{
+		*gx=((u16)buf[0]<<8)|buf[1];  
+		*gy=((u16)buf[2]<<8)|buf[3];  
 		*gz=((u16)buf[4]<<8)|buf[5];
-
-	} 
+	} 	
     return res;;
 }
-
 //µÃµ½¼ÓËÙ¶ÈÖµ(Ô­Ê¼Öµ)
 //gx,gy,gz:ÍÓÂÝÒÇx,y,zÖáµÄÔ­Ê¼¶ÁÊý(´ø·ûºÅ)
 //·µ»ØÖµ:0,³É¹¦

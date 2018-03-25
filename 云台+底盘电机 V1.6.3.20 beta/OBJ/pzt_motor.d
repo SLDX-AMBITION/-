@@ -40,3 +40,4 @@
 ..\obj\pzt_motor.o: ..\HARDWARE\remote.h
 ..\obj\pzt_motor.o: ..\HARDWARE\MPU6050\mpu6050.h
 ..\obj\pzt_motor.o: ..\HARDWARE\IIC\myiic.h
+..\obj\pzt_motor.o: ..\HARDWARE\eMPL\inv_mpu.h

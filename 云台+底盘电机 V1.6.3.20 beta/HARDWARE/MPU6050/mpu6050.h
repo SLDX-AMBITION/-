@@ -103,13 +103,12 @@ u8 MPU_Set_Accel_Fsr(u8 fsr);
 u8 MPU_Set_LPF(u16 lpf);
 u8 MPU_Set_Rate(u16 rate);
 u8 MPU_Set_Fifo(u8 sens);
-void read_Gyrodate(void) ;
-
 extern float Gyro_z,Gyro_y;
-
+u8 MPU_Get_Gyroscope_(short *gy,short *gz);
 short MPU_Get_Temperature(void);
-u8 MPU_Get_Gyroscope(short *gy,short *gz);
+u8 MPU_Get_Gyroscope(short *gx,short *gy,short *gz);
 u8 MPU_Get_Accelerometer(short *ax,short *ay,short *az);
+void read_Gyrodate(void) ;
 
 #endif
 

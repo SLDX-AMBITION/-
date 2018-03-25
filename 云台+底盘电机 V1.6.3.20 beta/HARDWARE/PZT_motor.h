@@ -2,6 +2,8 @@
 #define _PZT_
 #include "sys.h"
 
+extern u8 Init;
+
 typedef struct{
     float Set;    //定义设定值
     int Out; //输出值
@@ -30,9 +32,26 @@ typedef struct{
 	
 }State;
 
+typedef struct{
+	
+	struct{
+        float coder_raw;
+		float coder_last;
+		float coder_prestore;
+		float coder;
+		float coder_diff;
+		int16_t coder_cnt;
+		float now;
+	}position;//位置角度
+	
+	float speed;//角速度
+	float Current;//电流
+	
+}State_;
+extern State Yaw_state;
 void PZT_Init(void);
 void PID_Init(pid_type *PID_x, float p, float i, float d);
 int  PID_realize_incremental(pid_type *PID_x, float r);
 void PZT_data_Process(State *a);
-
+void PZT_data_Process_(State_ *a);
 #endif

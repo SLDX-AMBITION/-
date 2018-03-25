@@ -3,7 +3,8 @@
 #include "PZT_motor.h"
 #include "remote.h"
 #include "chassis_motor.h"
-pid_type_cm CM1_PID,CM2_PID,CM3_PID,CM4_PID;
+#include "PZT_motor.h"
+pid_type_cm CM1_PID,CM2_PID,CM3_PID,CM4_PID,SPIN_PID;
 int16_t CM_Real_Speed[4];
 extern RC rc;
 //采样时间：
@@ -14,6 +15,10 @@ extern RC rc;
 #define CM_PID_P 8
 #define CM_PID_I 0
 #define CM_PID_D 1
+
+#define SPIN_PID_P 2
+#define SPIN_PID_I 0
+#define SPIN_PID_D 1
 
 #define CM_LIMITE 2000
 
@@ -45,14 +50,15 @@ void CM_Init()
 	PID_Init_cm(&CM2_PID,CM_PID_P,CM_PID_I,CM_PID_D);
 	PID_Init_cm(&CM3_PID,CM_PID_P,CM_PID_I,CM_PID_D);
 	PID_Init_cm(&CM4_PID,CM_PID_P,CM_PID_I,CM_PID_D);
+	PID_Init_cm(&SPIN_PID,SPIN_PID_P,SPIN_PID_I,SPIN_PID_D);
 }
 
-void mecanum_Resolving(int *a ,int *b,int *c,int *d)
+void mecanum_Resolving(int *a ,int *b,int *c,int *d, int z)
 {
-	*a = rc.R_y - rc.R_x - rc.L_x;
-	*b = -(rc.R_y + rc.R_x + rc.L_x);
-	*c = -(rc.R_y - rc.R_x + rc.L_x);
-	*d = rc.R_y + rc.R_x - rc.L_x;
+	*a = z - rc.R_x - rc.L_x;
+	*b = -(z + rc.R_x + rc.L_x);
+	*c = -(z - rc.R_x + rc.L_x);
+	*d = z + rc.R_x - rc.L_x;
 }
 
 void TIM8_UP_TIM13_IRQHandler(void)
@@ -76,7 +82,7 @@ void TIM8_UP_TIM13_IRQHandler(void)
 			CM_Real_Speed[i] /= 13;
 		}
 		
-        mecanum_Resolving(&CM1_PID.Set ,&CM2_PID.Set, &CM3_PID.Set, &CM4_PID.Set);//麦克纳姆轮解算
+        mecanum_Resolving(&CM1_PID.Set ,&CM2_PID.Set, &CM3_PID.Set, &CM4_PID.Set, PID_realize_positiontype(&SPIN_PID,Yaw_state.position.now));//麦克纳姆轮解算
 		
 		cm1_out = PID_realize_positiontype(&CM1_PID,CM_Real_Speed[0]) + ERROR_MOTOR;
 		cm2_out = PID_realize_positiontype(&CM2_PID,CM_Real_Speed[1]) + ERROR_MOTOR;

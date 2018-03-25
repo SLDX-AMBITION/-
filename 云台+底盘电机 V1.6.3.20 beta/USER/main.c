@@ -7,6 +7,7 @@
 #include "remote.h"
 #include "mpu6050.h"
 #include "chassis_motor.h"
+#include "inv_mpu.h"
 //#include "dma.h"
 //////////////////////////////////////////////////
 //RM2018 云台实验程序
@@ -16,16 +17,20 @@
 //主函数
 //////////////////////////////////////////////////
 void ledInit();
+u8 s;
 int main(void)
 {
+	Init = 1;
 	Remote_uart2_init();
 	delay_init(168);
-	CAN1_Mode_Init(CAN_SJW_1tq,CAN_BS2_4tq,CAN_BS1_9tq,3,0);//CAN初始化普通模式,波特率1Mbps  
-
-	
 	MPU_Init();
+	CAN1_Mode_Init(CAN_SJW_1tq,CAN_BS2_4tq,CAN_BS1_9tq,3,0);//CAN初始化普通模式,波特率1Mbps  
 	PZT_Init();
 	CM_Init();
+	
+	s = mpu_dmp_init();
+	delay_ms(1000);
+	Init = 0;
 	ledInit();
 	while(1)
 	{

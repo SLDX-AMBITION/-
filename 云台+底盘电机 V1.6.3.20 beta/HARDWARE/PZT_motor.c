@@ -2,6 +2,7 @@
 #include "can.h"
 #include "remote.h"
 #include "mpu6050.h"
+#include "inv_mpu.h"
 
 pid_type Yaw_PID_inloop;//偏航 速度pid
 pid_type Pitch_PID_inloop;//俯仰 速度pid
@@ -9,12 +10,13 @@ pid_type Yaw_PID_outloop;//偏航 角度pid
 pid_type Pitch_PID_outloop;//俯仰 角度pid
 
 State Yaw_state,Pitch_state;
-
+State_ Yaw_state_;
+int a;
 int16_t Yaw_PID_out,Pitch_PID_out;
 float Yaw_remote,Pitch_remote;
-
+u8 Init;
 //采样时间：
-#define arr14 60-1;
+#define arr14 50-1;
 #define psc14 840-1;
 
 //YAW
@@ -36,7 +38,7 @@ float Yaw_remote,Pitch_remote;
 #define Speed_P_P 5
 #define Speed_I_P 0
 #define Speed_D_P 0
-
+float roll,pitch;
 
 extern RC rc;
 u8 Can_buf_S[8];//发送canbuf bit: 0,1->Yaw;2,3->Pitch;
@@ -106,66 +108,126 @@ void TIM8_TRG_COM_TIM14_IRQHandler(void)
 	
 	if(TIM_GetITStatus(TIM14,TIM_IT_Update)==SET) //溢出中断
 	{
-        Yaw_state.position.coder_raw = Can_buf_R[4][0]<<8 | Can_buf_R[4][1] ;	//机械角度范围0-8191(0x1FFF)
-	    Pitch_state.position.coder_raw = Can_buf_R[5][0]<<8 | Can_buf_R[5][1] ;		
-		read_Gyrodate() ;
-		
-		PZT_data_Process(&Yaw_state);
-		PZT_data_Process(&Pitch_state);
-		
+		if(Init)
+		{
+			Yaw_state.position.coder_raw = Can_buf_R[4][0]<<8 | Can_buf_R[4][1] ;	//机械角度范围0-8191(0x1FFF)
+			Pitch_state.position.coder_raw = Can_buf_R[5][0]<<8 | Can_buf_R[5][1] ;		
+			read_Gyrodate() ;
+			
+			PZT_data_Process(&Yaw_state);
+			PZT_data_Process(&Pitch_state);
+			
 
-		
-		if (flag == 1)
-		{
-//			Yaw_remote = Yaw_remote + (float)(rc.mouse_x /1000.0f);
-			Yaw_remote = Yaw_remote + (float)(rc.L_x /4000.0f);
-			Pitch_remote = Pitch_remote + (float)(rc.L_y /4000.0f);
-//		Yaw_remote = 0;
-			Yaw_PID_outloop.Set = Yaw_remote = Yaw_remote > 50 ? 50 : Yaw_remote ;
-			Yaw_PID_outloop.Set = Yaw_remote = Yaw_remote < -50 ? -50 : Yaw_remote ;
-			Pitch_PID_outloop.Set = Pitch_remote = Pitch_remote > 25 ? 25 : Pitch_remote ;
-			Pitch_PID_outloop.Set = Pitch_remote = Pitch_remote < -35 ? -35 : Pitch_remote ;
-			Yaw_PID_inloop.Set = PID_realize_incremental(&Yaw_PID_outloop, Yaw_state.position.now);
-			Pitch_PID_inloop.Set = -PID_realize_incremental(&Pitch_PID_outloop, Pitch_state.position.now);
-			flag = 0;
-		}
-		
-		Yaw_PID_inloop.Set = (Yaw_PID_inloop.Set < 650) ? Yaw_PID_inloop.Set : 650;
-		Yaw_PID_inloop.Set = (Yaw_PID_inloop.Set > -650) ? Yaw_PID_inloop.Set : -650;
-		Pitch_PID_inloop.Set = (Pitch_PID_inloop.Set < 650) ? Pitch_PID_inloop.Set : 650;
-		Pitch_PID_inloop.Set = (Pitch_PID_inloop.Set > -650) ? Pitch_PID_inloop.Set : -650;
-		
-//		Yaw_PID_inloop.Set = rc.R_x ;//内环输入值
-//		Pitch_PID_inloop.Set = rc.R_y ;//内环输入值
-		
-		Yaw_PID_out = -PID_realize_incremental(&Yaw_PID_inloop, Gyro_z);
-		Pitch_PID_out = PID_realize_incremental(&Pitch_PID_inloop, Gyro_y) + 600;
-		
-		Yaw_PID_out = (Yaw_PID_out<5000) ? Yaw_PID_out : 5000;//限幅输出
-		Yaw_PID_out = (Yaw_PID_out>-5000) ? Yaw_PID_out : -5000;
-		Pitch_PID_out = (Pitch_PID_out<5000) ? Pitch_PID_out : 5000;
-		Pitch_PID_out = (Pitch_PID_out>-5000) ? Pitch_PID_out : -5000;
-		
-/////////////应急////////////应急////////////////应急//////////////////////////		
-		if(rc.sr == 2)
-		{
-			Can_buf_S[0] = Yaw_PID_out/256;Can_buf_S[1] = Yaw_PID_out%256;
-			Can_buf_S[2] = Pitch_PID_out/256;Can_buf_S[3] = Pitch_PID_out%256;
-			CAN1_Send_PZT_Msg(Can_buf_S,8);
+			
+			if (flag == 1)
+			{
+	//			Yaw_remote = Yaw_remote + (float)(rc.mouse_x /1000.0f);
+				Yaw_remote = Yaw_remote + (float)(rc.L_x /4000.0f);
+				Pitch_remote = Pitch_remote + (float)(rc.L_y /4000.0f);
+
+				Yaw_PID_outloop.Set = Yaw_remote = Yaw_remote > 50 ? 50 : Yaw_remote ;
+				Yaw_PID_outloop.Set = Yaw_remote = Yaw_remote < -50 ? -50 : Yaw_remote ;
+				Pitch_PID_outloop.Set = Pitch_remote = Pitch_remote > 25 ? 25 : Pitch_remote ;
+				Pitch_PID_outloop.Set = Pitch_remote = Pitch_remote < -35 ? -35 : Pitch_remote ;
+				Yaw_PID_inloop.Set = PID_realize_incremental(&Yaw_PID_outloop, Yaw_state.position.now);
+				Pitch_PID_inloop.Set = -PID_realize_incremental(&Pitch_PID_outloop, Pitch_state.position.now);
+				flag = 0;
+			}
+			
+			Yaw_PID_inloop.Set = (Yaw_PID_inloop.Set < 650) ? Yaw_PID_inloop.Set : 650;
+			Yaw_PID_inloop.Set = (Yaw_PID_inloop.Set > -650) ? Yaw_PID_inloop.Set : -650;
+			Pitch_PID_inloop.Set = (Pitch_PID_inloop.Set < 650) ? Pitch_PID_inloop.Set : 650;
+			Pitch_PID_inloop.Set = (Pitch_PID_inloop.Set > -650) ? Pitch_PID_inloop.Set : -650;
+			
+	//		Yaw_PID_inloop.Set = rc.R_x ;//内环输入值
+	//		Pitch_PID_inloop.Set = rc.R_y ;//内环输入值
+			
+			Yaw_PID_out = -PID_realize_incremental(&Yaw_PID_inloop, Gyro_z);
+			Pitch_PID_out = PID_realize_incremental(&Pitch_PID_inloop, Gyro_y) + 600;
+			
+			Yaw_PID_out = (Yaw_PID_out<5000) ? Yaw_PID_out : 5000;//限幅输出
+			Yaw_PID_out = (Yaw_PID_out>-5000) ? Yaw_PID_out : -5000;
+			Pitch_PID_out = (Pitch_PID_out<5000) ? Pitch_PID_out : 5000;
+			Pitch_PID_out = (Pitch_PID_out>-5000) ? Pitch_PID_out : -5000;
+			
+	/////////////应急////////////应急////////////////应急//////////////////////////		
+			if(rc.sr == 2)
+			{
+				Can_buf_S[0] = Yaw_PID_out/256;Can_buf_S[1] = Yaw_PID_out%256;
+				Can_buf_S[2] = Pitch_PID_out/256;Can_buf_S[3] = Pitch_PID_out%256;
+				CAN1_Send_PZT_Msg(Can_buf_S,8);
+			}
+			else
+			{
+				Can_buf_S[0] = 0;Can_buf_S[1] = 0;
+				Can_buf_S[2] = 0;Can_buf_S[3] = 0;
+				CAN1_Send_PZT_Msg(Can_buf_S,8);
+			}
+			flag ++;
 		}
 		else
 		{
-			Can_buf_S[0] = 0;Can_buf_S[1] = 0;
-			Can_buf_S[2] = 0;Can_buf_S[3] = 0;
-			CAN1_Send_PZT_Msg(Can_buf_S,8);
+			
+			
+			Yaw_state.position.coder_raw = Can_buf_R[4][0]<<8 | Can_buf_R[4][1] ;	//机械角度范围0-8191(0x1FFF)
+			Pitch_state.position.coder_raw = Can_buf_R[5][0]<<8 | Can_buf_R[5][1] ;		
+			read_Gyrodate() ;
+			
+			PZT_data_Process_(&Yaw_state_);
+			PZT_data_Process(&Yaw_state);
+			PZT_data_Process(&Pitch_state);
+			
+
+			
+			if (flag == 1)
+			{
+				while(mpu_dmp_get_data(&pitch, &roll, &Yaw_state_.position.coder_raw));
+	//			Yaw_remote = Yaw_remote + (float)(rc.mouse_x /1000.0f);
+				Yaw_remote = Yaw_remote + (float)(rc.L_x /4000.0f);
+				Pitch_remote = Pitch_remote + (float)(rc.L_y /4000.0f);
+
+				Yaw_PID_outloop.Set = Yaw_remote = Yaw_remote > 50 ? 50 : Yaw_remote ;
+				Yaw_PID_outloop.Set = Yaw_remote = Yaw_remote < -50 ? -50 : Yaw_remote ;
+				Pitch_PID_outloop.Set = Pitch_remote = Pitch_remote > 25 ? 25 : Pitch_remote ;
+				Pitch_PID_outloop.Set = Pitch_remote = Pitch_remote < -35 ? -35 : Pitch_remote ;
+				Yaw_PID_inloop.Set = PID_realize_incremental(&Yaw_PID_outloop, Yaw_state_.position.now);
+				Pitch_PID_inloop.Set = -PID_realize_incremental(&Pitch_PID_outloop, Pitch_state.position.now);
+				flag = 0;
+			}
+			
+			Yaw_PID_inloop.Set = (Yaw_PID_inloop.Set < 650) ? Yaw_PID_inloop.Set : 650;
+			Yaw_PID_inloop.Set = (Yaw_PID_inloop.Set > -650) ? Yaw_PID_inloop.Set : -650;
+			Pitch_PID_inloop.Set = (Pitch_PID_inloop.Set < 650) ? Pitch_PID_inloop.Set : 650;
+			Pitch_PID_inloop.Set = (Pitch_PID_inloop.Set > -650) ? Pitch_PID_inloop.Set : -650;
+			
+			Yaw_PID_out = -PID_realize_incremental(&Yaw_PID_inloop, Gyro_z);
+			Pitch_PID_out = PID_realize_incremental(&Pitch_PID_inloop, Gyro_y) + 600;
+			
+			Yaw_PID_out = (Yaw_PID_out<5000) ? Yaw_PID_out : 5000;//限幅输出
+			Yaw_PID_out = (Yaw_PID_out>-5000) ? Yaw_PID_out : -5000;
+			Pitch_PID_out = (Pitch_PID_out<5000) ? Pitch_PID_out : 5000;
+			Pitch_PID_out = (Pitch_PID_out>-5000) ? Pitch_PID_out : -5000;
+			
+	/////////////应急////////////应急////////////////应急//////////////////////////		
+			if(rc.sr == 2)
+			{
+				Can_buf_S[0] = Yaw_PID_out/256;Can_buf_S[1] = Yaw_PID_out%256;
+				Can_buf_S[2] = Pitch_PID_out/256;Can_buf_S[3] = Pitch_PID_out%256;
+				CAN1_Send_PZT_Msg(Can_buf_S,8);
+			}
+			else
+			{
+				Can_buf_S[0] = 0;Can_buf_S[1] = 0;
+				Can_buf_S[2] = 0;Can_buf_S[3] = 0;
+				CAN1_Send_PZT_Msg(Can_buf_S,8);
+			}
+			flag ++;
 		}
-	//	printf("Y:%d\t P:%d \t err:%d \t P:%f \tout:%d\n",Angle_Yaw_A,Angle_Pitch_A,Pitch_PID_outloop.err,Pitch_PID_outloop.Kp,Pitch);
-		flag ++;
 	}
 	TIM_ClearITPendingBit(TIM14,TIM_IT_Update);  //清除中断标志位
 }
 /**
-  * @brief  云台数据处理
+  * @brief  初始化云台数据处理
   * @param  
   * @retval 
   * @note   
@@ -191,6 +253,34 @@ void PZT_data_Process(State *a)
 //	Yaw_state.Current = (Yaw_state.Current<30000)?Yaw_state.Current:(Yaw_state.Current-65535);
 //	Pitch_state.Current = (Pitch_state.Current<30000)?Pitch_state.Current:(Pitch_state.Current-65535);          
 }
+
+/**
+  * @brief  云台数据处理
+  * @param  
+  * @retval 
+  * @note   
+  */
+void PZT_data_Process_(State_ *a)
+{	
+	a->position.coder_diff = a->position.coder_raw - a->position.coder_last;
+	if(a->position.coder_diff < -300)  //防止编码器偏差过大
+	{
+		a->position.coder_cnt++;
+	}else if(a->position.coder_diff > 300)
+	{
+		a->position.coder_cnt--;
+	}
+	a->position.now = a->position.coder_raw + a->position.coder_cnt*360;      //计算实际角度
+	
+	a->position.coder_last = a->position.coder_raw;
+	
+//	Yaw_state.Current = Can_buf_R[4][2]<<8| Can_buf_R[4][3];  //实际转矩电流值
+//	Pitch_state.Current = Can_buf_R[5][2]<<8 | Can_buf_R[5][3];
+
+//	Yaw_state.Current = (Yaw_state.Current<30000)?Yaw_state.Current:(Yaw_state.Current-65535);
+//	Pitch_state.Current = (Pitch_state.Current<30000)?Pitch_state.Current:(Pitch_state.Current-65535);          
+}
+
 
 /**
   * @brief  pid初始化函数
